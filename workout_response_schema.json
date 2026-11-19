@@ -1,0 +1,66 @@
+{
+  "type": "object",
+  "properties": {
+    "workouts": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Ordered workout sessions for one week.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "workout_number": {
+            "type": "integer",
+            "description": "Session number, starting at 1; the app displays Workout N."
+          },
+          "title": {
+            "type": "string",
+            "description": "Short descriptive workout title."
+          },
+          "estimated_duration_minutes": {
+            "type": "integer",
+            "description": "Approximate duration label copied from the selected session length, not calculated."
+          },
+          "exercises": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Exercises in performance order.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "exercise_id": {
+                  "type": "string",
+                  "description": "Exact ID from the supplied allowed exercise catalog."
+                },
+                "sets": {
+                  "type": "integer",
+                  "description": "Number of sets; one count for all sets of this exercise."
+                },
+                "reps": {
+                  "type": "integer",
+                  "description": "Repetitions per set; per side when the catalog reps_per_side flag is true."
+                }
+              },
+              "required": [
+                "exercise_id",
+                "sets",
+                "reps"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "workout_number",
+          "title",
+          "estimated_duration_minutes",
+          "exercises"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "workouts"
+  ],
+  "additionalProperties": false
+}
