@@ -1,0 +1,181 @@
+[
+  {
+    "id": "bodyweight_squat",
+    "name": "Bodyweight Squat",
+    "muscle_groups": [
+      "quadriceps",
+      "glutes"
+    ],
+    "equipment": [],
+    "reps_per_side": false
+  },
+  {
+    "id": "bodyweight_split_squat",
+    "name": "Stationary Bodyweight Split Squat",
+    "muscle_groups": [
+      "quadriceps",
+      "glutes"
+    ],
+    "equipment": [],
+    "reps_per_side": true
+  },
+  {
+    "id": "glute_bridge",
+    "name": "Two-Leg Glute Bridge",
+    "muscle_groups": [
+      "glutes"
+    ],
+    "equipment": [],
+    "reps_per_side": false
+  },
+  {
+    "id": "standing_bilateral_calf_raise",
+    "name": "Standing Two-Leg Calf Raise on Floor",
+    "muscle_groups": [
+      "calves"
+    ],
+    "equipment": [],
+    "reps_per_side": false
+  },
+  {
+    "id": "kneeling_push_up",
+    "name": "Kneeling Push-Up",
+    "muscle_groups": [
+      "chest",
+      "shoulders",
+      "triceps"
+    ],
+    "equipment": [],
+    "reps_per_side": false
+  },
+  {
+    "id": "side_lying_hip_abduction",
+    "name": "Side-Lying Straight-Leg Hip Abduction",
+    "muscle_groups": [
+      "glutes"
+    ],
+    "equipment": [],
+    "reps_per_side": true
+  },
+  {
+    "id": "bird_dog",
+    "name": "Alternating Bird Dog",
+    "muscle_groups": [
+      "abdominals",
+      "lower_back"
+    ],
+    "equipment": [],
+    "reps_per_side": true
+  },
+  {
+    "id": "abdominal_crunch",
+    "name": "Abdominal Crunch with Hands Sliding on Thighs",
+    "muscle_groups": [
+      "abdominals"
+    ],
+    "equipment": [],
+    "reps_per_side": false
+  },
+  {
+    "id": "dead_bug",
+    "name": "Alternating Dead Bug",
+    "muscle_groups": [
+      "abdominals"
+    ],
+    "equipment": [],
+    "reps_per_side": true
+  },
+  {
+    "id": "dumbbell_goblet_squat",
+    "name": "Dumbbell Goblet Squat",
+    "muscle_groups": [
+      "quadriceps",
+      "glutes"
+    ],
+    "equipment": [
+      "dumbbells"
+    ],
+    "reps_per_side": false
+  },
+  {
+    "id": "dumbbell_romanian_deadlift",
+    "name": "Two-Leg Dumbbell Romanian Deadlift",
+    "muscle_groups": [
+      "hamstrings",
+      "glutes"
+    ],
+    "equipment": [
+      "dumbbells"
+    ],
+    "reps_per_side": false
+  },
+  {
+    "id": "dumbbell_single_arm_bent_over_row",
+    "name": "Standing Single-Arm Dumbbell Bent-Over Row",
+    "muscle_groups": [
+      "upper_back",
+      "shoulders"
+    ],
+    "equipment": [
+      "dumbbells"
+    ],
+    "reps_per_side": true
+  },
+  {
+    "id": "dumbbell_floor_press",
+    "name": "Two-Arm Dumbbell Floor Press",
+    "muscle_groups": [
+      "chest",
+      "triceps"
+    ],
+    "equipment": [
+      "dumbbells"
+    ],
+    "reps_per_side": false
+  },
+  {
+    "id": "dumbbell_standing_shoulder_press",
+    "name": "Standing Two-Arm Dumbbell Shoulder Press",
+    "muscle_groups": [
+      "shoulders",
+      "triceps"
+    ],
+    "equipment": [
+      "dumbbells"
+    ],
+    "reps_per_side": false
+  },
+  {
+    "id": "dumbbell_lateral_raise",
+    "name": "Standing Two-Arm Dumbbell Lateral Raise",
+    "muscle_groups": [
+      "shoulders"
+    ],
+    "equipment": [
+      "dumbbells"
+    ],
+    "reps_per_side": false
+  },
+  {
+    "id": "dumbbell_single_arm_hammer_curl",
+    "name": "Standing Single-Arm Dumbbell Hammer Curl",
+    "muscle_groups": [
+      "biceps"
+    ],
+    "equipment": [
+      "dumbbells"
+    ],
+    "reps_per_side": true
+  },
+  {
+    "id": "dumbbell_single_arm_floor_triceps_extension",
+    "name": "Single-Arm Dumbbell Triceps Extension on Floor",
+    "muscle_groups": [
+      "triceps"
+    ],
+    "equipment": [
+      "dumbbells"
+    ],
+    "reps_per_side": true
+  }
+]
