@@ -1,0 +1,89 @@
+{
+  "title": "Workout onboarding",
+  "fields": {
+    "goal": {
+      "label": "User goal",
+      "type": "select",
+      "options": [
+        "Build strength",
+        "Build muscle",
+        "Maintain endurance"
+      ]
+    },
+    "equipment": {
+      "label": "Equipment",
+      "type": "multiselect",
+      "options": [
+        "Body weight",
+        "Actual equipment"
+      ]
+    },
+    "available_days": {
+      "label": "Availability",
+      "help": "Select the days you can work out.",
+      "type": "multiselect",
+      "options": [
+        {
+          "value": "M",
+          "label": "Monday"
+        },
+        {
+          "value": "T",
+          "label": "Tuesday"
+        },
+        {
+          "value": "W",
+          "label": "Wednesday"
+        },
+        {
+          "value": "Th",
+          "label": "Thursday"
+        },
+        {
+          "value": "F",
+          "label": "Friday"
+        },
+        {
+          "value": "S",
+          "label": "Saturday"
+        },
+        {
+          "value": "Sun",
+          "label": "Sunday"
+        }
+      ]
+    },
+    "session_minutes": {
+      "label": "Session time",
+      "help": "Choose a session length from 20 to 60 minutes.",
+      "type": "select",
+      "options": [
+        20,
+        25,
+        30,
+        35,
+        40,
+        45,
+        50,
+        55,
+        60
+      ]
+    }
+  },
+  "response_schema": {
+    "required": [
+      "plan_title",
+      "weekly_schedule"
+    ],
+    "weekly_schedule_item_required": [
+      "day",
+      "exercises"
+    ],
+    "exercise_required": [
+      "name",
+      "sets",
+      "reps",
+      "instructions"
+    ]
+  }
+}
