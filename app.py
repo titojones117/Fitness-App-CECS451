@@ -2,6 +2,7 @@ import json
 import hmac
 from pathlib import Path
 
+import jsonschema
 import streamlit as st
 from google import genai
 
@@ -70,38 +71,42 @@ def prepare_gemini_request(onboarding_data, eligible_exercises):
     }
 
 
-def parse_and_validate_plan(response_text):
-    cleaned_response = response_text.strip()
-    if cleaned_response.startswith("```"):
-        cleaned_response = cleaned_response.split("\n", 1)[1]
-        cleaned_response = cleaned_response.rsplit("```", 1)[0].strip()
+def generate_workout_plan(prepared_request):
+    with genai.Client(api_key=st.secrets["GEMINI_API_KEY"]) as client:
+        response = client.interactions.create(
+            model=st.secrets["GEMINI_MODEL"],
+            system_instruction=prepared_request["instructions"],
+            input=json.dumps(prepared_request["input"], ensure_ascii=False),
+            response_format={
+                "type": "text",
+                "mime_type": "application/json",
+                "schema": prepared_request["response_schema"],
+            },
+        )
 
-    plan = json.loads(cleaned_response)
-    if not isinstance(plan, dict):
-        raise ValueError("The response was not a JSON object.")
-    if not isinstance(plan.get("plan_title"), str) or not plan["plan_title"].strip():
-        raise ValueError("The response did not include a plan title.")
+    raw_response = response.output_text
+    if not isinstance(raw_response, str) or not raw_response.strip():
+        raise ValueError("Gemini returned no text.")
+    plan = json.loads(raw_response)
+    jsonschema.validate(instance=plan, schema=prepared_request["response_schema"])
 
-    weekly_schedule = plan.get("weekly_schedule")
-    if not isinstance(weekly_schedule, list) or not weekly_schedule:
-        raise ValueError("The response did not include a weekly schedule.")
+    eligible_ids = {
+        exercise["id"] for exercise in prepared_request["input"]["eligible_exercises"]
+    }
+    for workout in plan["workouts"]:
+        workout["exercises"] = [
+            exercise for exercise in workout["exercises"]
+            if exercise["exercise_id"] in eligible_ids
+        ]
+    plan["workouts"] = [workout for workout in plan["workouts"] if workout["exercises"]]
+    if not plan["workouts"]:
+        raise ValueError("Gemini returned no usable workouts.")
 
-    for session in weekly_schedule:
-        if not isinstance(session, dict):
-            raise ValueError("A workout session was not an object.")
-        if not isinstance(session.get("day"), str):
-            raise ValueError("A workout session is missing its day.")
-        exercises = session.get("exercises")
-        if not isinstance(exercises, list) or not exercises:
-            raise ValueError("A workout session is missing exercises.")
-        for exercise in exercises:
-            if not isinstance(exercise, dict):
-                raise ValueError("An exercise was not an object.")
-            required_fields = ("name", "sets", "reps", "instructions")
-            if any(not exercise.get(field) for field in required_fields):
-                raise ValueError("An exercise is missing required details.")
-
-    return plan
+    return {
+        "plan": plan,
+        "raw_response": raw_response,
+        "user_selections": prepared_request["input"]["user_selections"],
+    }
 
 
 onboarding_config = load_onboarding_config()
@@ -175,20 +180,49 @@ if submitted:
                 st.session_state.onboarding_data = onboarding_data
                 st.session_state.eligible_exercises = eligible_exercises
                 st.session_state.prepared_request = prepared_request
-                st.success(
-                    f"Request prepared with {len(eligible_exercises)} eligible exercises. "
-                    "No request was sent to Gemini. No workout plan has been generated."
-                )
+                try:
+                    with st.spinner("Generating your workout plan..."):
+                        generation_result = generate_workout_plan(prepared_request)
+                except (ValueError, jsonschema.ValidationError, jsonschema.SchemaError):
+                    st.error(
+                        "Gemini did not return a usable workout plan. Please try again."
+                    )
+                except Exception:
+                    st.error(
+                        "Unable to generate a workout plan. "
+                        "Please try again or contact the team."
+                    )
+                else:
+                    st.session_state.generation_result = generation_result
+                    st.success("Workout plan generated.")
 
 if "onboarding_data" in st.session_state:
     with st.expander("Submitted onboarding JSON"):
         st.json(st.session_state.onboarding_data)
 
+if "generation_result" in st.session_state:
+    generation_result = st.session_state.generation_result
+    st.subheader("Workout plan - last successful generation")
+    st.caption("Selections used for this result:")
+    st.json(generation_result["user_selections"])
+    st.json(generation_result["plan"])
+    st.caption(
+        "The download preserves Gemini's original JSON. The displayed plan excludes "
+        "exercises unavailable for these selections."
+    )
+    st.download_button(
+        "Download Gemini response (.json)",
+        data=generation_result["raw_response"].encode("utf-8"),
+        file_name="gemini_response.json",
+        mime="application/json",
+        on_click="ignore",
+    )
+
 if "prepared_request" in st.session_state:
-    with st.expander("Prepared Gemini request (last successful submission)"):
+    with st.expander("Prepared Gemini request (last prepared submission)"):
         st.info(
-            "Preview only. This shows the last successfully prepared request, "
-            "including the selections used for it. It has not been sent to Gemini."
+            "These are the inputs for the last prepared request. "
+            "This preview does not indicate that generation succeeded."
         )
         prepared_request = st.session_state.prepared_request
         st.caption("Generation instructions")
