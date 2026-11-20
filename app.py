@@ -6,11 +6,46 @@ import streamlit as st
 from google import genai
 
 CONFIG_PATH = Path(__file__).with_name("onboarding_config.json")
+EXERCISE_CATALOG_PATH = Path(__file__).with_name("exercise_catalog.json")
+ELIGIBLE_EXERCISES_PATH = Path(__file__).with_name("eligible_exercises.json")
 
 
 def load_onboarding_config():
     with CONFIG_PATH.open(encoding="utf-8") as config_file:
         return json.load(config_file)
+
+
+def create_eligible_exercises(equipment_selection):
+    with EXERCISE_CATALOG_PATH.open(encoding="utf-8") as catalog_file:
+        exercise_catalog = json.load(catalog_file)
+
+    if not isinstance(exercise_catalog, list):
+        raise ValueError("The exercise catalog must be a JSON array.")
+
+    allowed_equipment = {
+        "Bodyweight only": set(),
+        "Bodyweight and dumbbells": {"dumbbells"},
+    }.get(equipment_selection)
+    if allowed_equipment is None:
+        raise ValueError("The selected equipment is not supported.")
+
+    eligible_exercises = []
+    for exercise in exercise_catalog:
+        if not isinstance(exercise, dict):
+            raise ValueError("An exercise catalog entry must be a JSON object.")
+
+        exercise_equipment = exercise.get("equipment")
+        if not isinstance(exercise_equipment, list):
+            raise ValueError("An exercise catalog entry has invalid equipment.")
+
+        if set(exercise_equipment).issubset(allowed_equipment):
+            eligible_exercises.append(exercise)
+
+    with ELIGIBLE_EXERCISES_PATH.open("w", encoding="utf-8") as eligible_file:
+        json.dump(eligible_exercises, eligible_file, indent=2)
+        eligible_file.write("\n")
+
+    return eligible_exercises
 
 
 def parse_and_validate_plan(response_text):
@@ -118,42 +153,44 @@ if st.session_state.get("onboarding_started", False):
 
     with st.form("onboarding_form"):
         goal = st.selectbox(fields["goal"]["label"], fields["goal"]["options"])
-        equipment = st.multiselect(
+        equipment = st.selectbox(
             fields["equipment"]["label"], fields["equipment"]["options"]
         )
-        available_days = st.multiselect(
-            fields["available_days"]["label"],
-            [option["value"] for option in fields["available_days"]["options"]],
-            format_func=lambda value: next(
-                option["label"]
-                for option in fields["available_days"]["options"]
-                if option["value"] == value
-            ),
-            help=fields["available_days"]["help"],
+        workouts_per_week = st.selectbox(
+            fields["workouts_per_week"]["label"],
+            fields["workouts_per_week"]["options"],
+            help=fields["workouts_per_week"]["help"],
         )
         session_minutes = st.selectbox(
-            fields["session_minutes"]["label"],
-            fields["session_minutes"]["options"],
+            fields["session_length_minutes"]["label"],
+            fields["session_length_minutes"]["options"],
             format_func=lambda minutes: f"{minutes} minutes",
-            help=fields["session_minutes"]["help"],
+            help=fields["session_length_minutes"]["help"],
         )
         submitted = st.form_submit_button("Generate workout plan")
 
     if submitted:
-        if not equipment:
-            st.error("Select at least one equipment option.")
-        elif not available_days:
-            st.error("Select at least one available day.")
-        else:
-            onboarding_data = {
+        onboarding_data = {
+            "user_selections": {
                 "goal": goal,
                 "equipment": equipment,
-                "available_days": available_days,
-                "session_minutes": session_minutes,
+                "workouts_per_week": workouts_per_week,
+                "session_length_minutes": session_minutes,
             }
+        }
+        try:
+            eligible_exercises = create_eligible_exercises(equipment)
+        except (OSError, json.JSONDecodeError, ValueError):
+            st.error("Unable to create the eligible exercise library.")
+        else:
             st.session_state.onboarding_data = onboarding_data
-            st.success("Onboarding submitted. Displaying your onboarding JSON.")
+            st.session_state.eligible_exercises = eligible_exercises
+            st.success("Onboarding submitted. Created your eligible exercise library.")
 
     if "onboarding_data" in st.session_state:
         with st.expander("Submitted onboarding JSON"):
             st.json(st.session_state.onboarding_data)
+
+    if "eligible_exercises" in st.session_state:
+        with st.expander("Eligible exercises JSON"):
+            st.json(st.session_state.eligible_exercises)
