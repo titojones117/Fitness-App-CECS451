@@ -7,6 +7,8 @@ from google import genai
 
 CONFIG_PATH = Path(__file__).with_name("onboarding_config.json")
 EXERCISE_CATALOG_PATH = Path(__file__).with_name("exercise_catalog.json")
+GEMINI_INSTRUCTIONS_PATH = Path(__file__).with_name("gemini_instructions.txt")
+RESPONSE_SCHEMA_PATH = Path(__file__).with_name("workout_response_schema.json")
 
 
 def load_onboarding_config():
@@ -45,6 +47,27 @@ def filter_eligible_exercises(exercise_catalog, equipment_selection):
         for exercise in exercise_catalog
         if set(exercise["equipment"]).issubset(allowed_equipment)
     ]
+
+
+def prepare_gemini_request(onboarding_data, eligible_exercises):
+    with GEMINI_INSTRUCTIONS_PATH.open(encoding="utf-8") as instructions_file:
+        instructions = instructions_file.read()
+    if not instructions.strip():
+        raise ValueError("The generation instructions are empty.")
+
+    with RESPONSE_SCHEMA_PATH.open(encoding="utf-8") as schema_file:
+        response_schema = json.load(schema_file)
+    if not isinstance(response_schema, dict) or not response_schema:
+        raise ValueError("The response schema must be a nonempty JSON object.")
+
+    return {
+        "instructions": instructions,
+        "input": {
+            "user_selections": onboarding_data,
+            "eligible_exercises": eligible_exercises,
+        },
+        "response_schema": response_schema,
+    }
 
 
 def parse_and_validate_plan(response_text):
@@ -139,16 +162,47 @@ if submitted:
                 "Unable to load the exercise catalog. Please try again or contact the team."
             )
         else:
-            st.session_state.onboarding_data = onboarding_data
-            st.session_state.eligible_exercises = eligible_exercises
-            st.success(
-                f"Onboarding submitted. {len(eligible_exercises)} exercises are eligible. "
-                "Workout generation is not available yet."
-            )
+            try:
+                prepared_request = prepare_gemini_request(
+                    onboarding_data, eligible_exercises
+                )
+            except (OSError, ValueError):
+                st.error(
+                    "Unable to prepare the Gemini request. "
+                    "Please try again or contact the team."
+                )
+            else:
+                st.session_state.onboarding_data = onboarding_data
+                st.session_state.eligible_exercises = eligible_exercises
+                st.session_state.prepared_request = prepared_request
+                st.success(
+                    f"Request prepared with {len(eligible_exercises)} eligible exercises. "
+                    "No request was sent to Gemini. No workout plan has been generated."
+                )
 
 if "onboarding_data" in st.session_state:
     with st.expander("Submitted onboarding JSON"):
         st.json(st.session_state.onboarding_data)
+
+if "prepared_request" in st.session_state:
+    with st.expander("Prepared Gemini request (last successful submission)"):
+        st.info(
+            "Preview only. This shows the last successfully prepared request, "
+            "including the selections used for it. It has not been sent to Gemini."
+        )
+        prepared_request = st.session_state.prepared_request
+        st.caption("Generation instructions")
+        st.code(prepared_request["instructions"], language="text")
+        st.caption("Input JSON")
+        st.code(
+            json.dumps(prepared_request["input"], indent=2, ensure_ascii=False),
+            language="json",
+        )
+        st.caption("Response schema")
+        st.code(
+            json.dumps(prepared_request["response_schema"], indent=2, ensure_ascii=False),
+            language="json",
+        )
 
 with st.expander("Connection diagnostics (optional)"):
     if st.button("Test interaction"):
