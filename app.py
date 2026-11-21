@@ -71,6 +71,30 @@ def prepare_gemini_request(onboarding_data, eligible_exercises):
     }
 
 
+def resolve_workout_display(plan, exercise_catalog):
+    catalog_by_id = {exercise["id"]: exercise for exercise in exercise_catalog}
+    display_workouts = []
+    for workout in plan["workouts"]:
+        rows = []
+        for exercise in workout["exercises"]:
+            catalog_exercise = catalog_by_id[exercise["exercise_id"]]
+            reps = str(exercise["reps"])
+            if catalog_exercise["reps_per_side"]:
+                reps += " per side"
+            rows.append({
+                "Exercise": catalog_exercise["name"],
+                "Sets": exercise["sets"],
+                "Reps": reps,
+            })
+        display_workouts.append({
+            "workout_number": workout["workout_number"],
+            "title": workout["title"],
+            "estimated_duration_minutes": workout["estimated_duration_minutes"],
+            "exercises": rows,
+        })
+    return display_workouts
+
+
 def generate_workout_plan(prepared_request):
     with genai.Client(api_key=st.secrets["GEMINI_API_KEY"]) as client:
         response = client.interactions.create(
@@ -183,6 +207,9 @@ if submitted:
                 try:
                     with st.spinner("Generating your workout plan..."):
                         generation_result = generate_workout_plan(prepared_request)
+                        generation_result["display_workouts"] = resolve_workout_display(
+                            generation_result["plan"], eligible_exercises
+                        )
                 except (ValueError, jsonschema.ValidationError, jsonschema.SchemaError):
                     st.error(
                         "Gemini did not return a usable workout plan. Please try again."
@@ -196,49 +223,98 @@ if submitted:
                     st.session_state.generation_result = generation_result
                     st.success("Workout plan generated.")
 
-if "onboarding_data" in st.session_state:
-    with st.expander("Submitted onboarding JSON"):
-        st.json(st.session_state.onboarding_data)
-
 if "generation_result" in st.session_state:
     generation_result = st.session_state.generation_result
-    st.subheader("Workout plan - last successful generation")
-    st.caption("Selections used for this result:")
-    st.json(generation_result["user_selections"])
-    st.json(generation_result["plan"])
-    st.caption(
-        "The download preserves Gemini's original JSON. The displayed plan excludes "
-        "exercises unavailable for these selections."
-    )
-    st.download_button(
-        "Download Gemini response (.json)",
-        data=generation_result["raw_response"].encode("utf-8"),
-        file_name="gemini_response.json",
-        mime="application/json",
-        on_click="ignore",
+    st.subheader("Your workout plan")
+    st.caption("Last successful generation. These selections belong to the plan shown below.")
+    selections = generation_result["user_selections"]
+    st.write(f"Goal: {selections['goal']}")
+    st.write(f"Equipment: {selections['equipment']}")
+    st.write(f"Requested workouts per week: {selections['workouts_per_week']}")
+    st.write(
+        "Session-length preference: approximately "
+        f"{selections['session_length_minutes']} minutes"
     )
 
-if "prepared_request" in st.session_state:
-    with st.expander("Prepared Gemini request (last prepared submission)"):
+    # Resolve results created before the readable view was added, without generating again.
+    if "display_workouts" not in generation_result:
+        try:
+            display_workouts = resolve_workout_display(
+                generation_result["plan"], load_exercise_catalog()
+            )
+        except (OSError, ValueError, KeyError, TypeError):
+            st.error(
+                "Unable to display workout details. "
+                "Please try again or contact the team."
+            )
+        else:
+            generation_result = {**generation_result, "display_workouts": display_workouts}
+            st.session_state.generation_result = generation_result
+
+    if "display_workouts" in generation_result:
+        display_workouts = generation_result["display_workouts"]
+        st.markdown("**Weekly overview**")
+        st.table([
+            {
+                "Workout": f"Workout {workout['workout_number']}",
+                "Title": workout["title"],
+                "Approximate minutes": workout["estimated_duration_minutes"],
+            }
+            for workout in display_workouts
+        ], hide_index=True)
+        st.caption("Durations are approximate labels, not calculated completion times.")
+        for workout in display_workouts:
+            with st.expander(
+                f"Workout {workout['workout_number']} \u2014 {workout['title']} \u2014 "
+                f"approximately {workout['estimated_duration_minutes']} minutes",
+                expanded=False,
+            ):
+                st.table(workout["exercises"], hide_index=True)
+
+with st.expander("Diagnostics", expanded=False):
+    if "onboarding_data" in st.session_state:
+        with st.expander("Submitted onboarding JSON", expanded=False):
+            st.code(
+                json.dumps(st.session_state.onboarding_data, indent=2, ensure_ascii=False),
+                language="json",
+            )
+
+    if "prepared_request" in st.session_state:
+        st.markdown("**Prepared Gemini request (last prepared submission)**")
         st.info(
             "These are the inputs for the last prepared request. "
             "This preview does not indicate that generation succeeded."
         )
         prepared_request = st.session_state.prepared_request
-        st.caption("Generation instructions")
-        st.code(prepared_request["instructions"], language="text")
-        st.caption("Input JSON")
-        st.code(
-            json.dumps(prepared_request["input"], indent=2, ensure_ascii=False),
-            language="json",
+        with st.expander("Gemini instructions", expanded=False):
+            st.code(prepared_request["instructions"], language="text")
+        with st.expander("Input JSON", expanded=False):
+            st.code(
+                json.dumps(prepared_request["input"], indent=2, ensure_ascii=False),
+                language="json",
+            )
+        with st.expander("Response schema", expanded=False):
+            st.code(
+                json.dumps(prepared_request["response_schema"], indent=2, ensure_ascii=False),
+                language="json",
+            )
+
+    if "generation_result" in st.session_state:
+        generation_result = st.session_state.generation_result
+        st.markdown("**Original Gemini response (last successful generation)**")
+        st.caption(
+            "The download preserves Gemini's original JSON. The displayed plan excludes "
+            "exercises unavailable for these selections."
         )
-        st.caption("Response schema")
-        st.code(
-            json.dumps(prepared_request["response_schema"], indent=2, ensure_ascii=False),
-            language="json",
+        st.download_button(
+            "Download Gemini response (.json)",
+            data=generation_result["raw_response"].encode("utf-8"),
+            file_name="gemini_response.json",
+            mime="application/json",
+            on_click="ignore",
         )
 
-with st.expander("Connection diagnostics (optional)"):
+    st.markdown("**Connection diagnostics**")
     if st.button("Test interaction"):
         st.info("Button interaction works. No AI request was made.")
 
