@@ -1,6 +1,7 @@
 import json
 import hmac
 from pathlib import Path
+from auth import create_user, authenticate
 
 import jsonschema
 import streamlit as st
@@ -137,25 +138,49 @@ onboarding_config = load_onboarding_config()
 st.set_page_config(page_title="Fitness App")
 st.title("Fitness App")
 
-if not st.session_state.get("authorized", False):
-    with st.form("access_form"):
-        code = st.text_input("Access code", type="password")
-        submitted = st.form_submit_button("Unlock")
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
 
-    if submitted:
-        expected = st.secrets["PROJECT_ACCESS_CODE"]
+if "username" not in st.session_state:
+    st.session_state.username = None
 
-        if expected and hmac.compare_digest(
-            code.encode("utf-8"), expected.encode("utf-8")
-        ):
-            st.session_state.authorized = True
-            st.rerun()
-        else:
-            st.error("Incorrect access code.")
+
+if not st.session_state.logged_in:
+    login_tab, signup_tab = st.tabs(["Login", "Create Account"])
+
+    with login_tab:
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+
+        if st.button("Login"):
+            if authenticate(username, password):
+                st.session_state.logged_in = True
+                st.session_state.username = username
+                st.rerun()
+            else:
+                st.error("Invalid username or password")
+
+    with signup_tab:
+        new_username = st.text_input("Create username")
+        new_password = st.text_input("Create password", type="password")
+        confirm_password = st.text_input("Confirm password", type="password")
+
+        if st.button("Create Account"):
+            if new_password != confirm_password:
+                st.error("Passwords do not match")
+            elif create_user(new_username, new_password):
+                st.success("Account created. Please log in.")
+            else:
+                st.error("Username already exists")
 
     st.stop()
 
-st.success("Access granted.")
+st.sidebar.write(f"Logged in as {st.session_state.username}")
+
+if st.sidebar.button("Logout"):
+    st.session_state.logged_in = False
+    st.session_state.username = None
+    st.rerun()
 
 st.header(onboarding_config["title"])
 fields = onboarding_config["fields"]
